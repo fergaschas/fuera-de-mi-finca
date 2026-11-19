@@ -487,6 +487,46 @@ input.plain{font:600 15px var(--body);letter-spacing:0;text-transform:none;width
   .res .btns{grid-column:span 4}
   .res .undo{grid-column:span 2}
 }
+/* móvil en vertical: la partida cabe entera, sin scroll. Arriba, una franja con pestañas (campo del vecino o feria);
+   debajo, siempre, tu finca, tu mano y la barra de acciones. Las cartas se ajustan al alto de su franja. */
+.tabs{display:none}
+@media (max-width:900px) and (min-height:521px){
+  html,body{height:100%;height:100dvh}
+  .campo{overflow:hidden}
+  .side-o{display:none}
+  .tabs{order:2;flex:none;display:flex;background:#24160a;padding:5px 10px 0}
+  .tabs button{flex:1;min-width:0;border-radius:8px 8px 0 0;border:0;background:#3a2814;color:#cdb48a;font:700 13px/1.15 var(--display);padding:5px 6px 4px;display:flex;flex-direction:column;align-items:center;gap:1px}
+  .tabs small{display:flex;align-items:center;gap:3px;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:600 10.5px var(--cond);letter-spacing:.06em;text-transform:uppercase;color:#a8916b}
+  .tabs small .gi{width:11px;height:11px}
+  .tabs small.hot{color:var(--wheat)}
+  .tabs small.hit{color:#ff8a6a}
+  .tabs button[aria-selected=true]{background:#3f6426;color:#f1e2c0}
+  .tab-f .tabs button[aria-selected=true]{background:#6b5233}
+  .tabs button[aria-selected=true] small{color:#f1e2c0}
+  .tab-v .feria,.tab-f .lane.opp{display:none}
+  .lane.opp,.feria{order:3}
+  .lane,.dock,.feria{flex:1 1 0;min-height:0;padding:6px 10px;container-type:size}
+  .feria{display:flex;flex-direction:column;gap:6px}
+  .feria .market-row{flex:1;min-height:0}
+  .feria .sign,.lane .sign,.dock .sign{padding:4px 8px 3px;font-size:11px}
+  .dock .sign .mob{display:none}
+  .cards{min-height:0}
+  .lane .card,.dock .card{--cw:max(40px,min(var(--cwn),calc((100cqh - 28px) / 1.62)))}
+  .feria .market-row{--fcw:max(40px,min(var(--cwn),calc((100cqh - 36px) / 1.62)))}
+  .feria .card{--cw:var(--fcw)}
+  .feria .slot{width:var(--fcw);height:calc(var(--fcw)*1.62)}
+  .plq.me{margin:4px 10px 0;padding:4px 10px;gap:4px 10px}
+  .plq .hbar,.plq .pstate{display:none}
+  .plq .pn{font-size:13px}
+  .plq .ps{font-size:19px}
+  .plq .ps .gi{width:16px;height:16px}
+  .res{padding:5px 10px calc(5px + env(safe-area-inset-bottom,0px));gap:5px}
+  .res .pool .v{font-size:17px}
+  .res .pool .gi{width:13px;height:13px}
+  .res .attack{padding:4px 6px}
+  .res .btns button{padding:6px 2px}
+  .res.idle{padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px))}
+}
 @media (max-width:520px){
   .facs{grid-template-columns:repeat(2,minmax(0,1fr))}
   .fac .card{--cw:min(150px,38vw)}
@@ -1898,6 +1938,15 @@ function logHTML(G, me, newN){
   return groups.reverse().map(g => '<div class="lg' + (g.s === me ? ' me' : '') + '"><div class="lh">' + esc(g.h) + (g.s >= 0 ? '<span>' + (g.s === me ? 'Tú' : esc(seatName(g.s))) + '</span>' : '') + '</div>' + g.items.reverse().join('') + '</div>').join('');
 }
 const barPct = n => (Math.min(100, Math.max(0, n) / START_AUTH * 100)).toFixed(1) + '%';
+// pestaña que conviene ver en el móvil: la feria si puedes comprar, si no el campo del vecino
+function tabWant(G, myTurn, canBuy){
+  const st = S.tut && TUT[S.tut.step], m = S.ui.mode && S.ui.mode.t;
+  if (st && /market-row/.test(st.sel)) return 'f';
+  if (st && /\.(lane|plq)\.op/.test(st.sel)) return 'v';
+  if (!myTurn || m === 'db') return 'v';
+  if (m === 'fr' || m === 'sr' || canBuy) return 'f';
+  return 'v';
+}
 function renderGame(){
   const G = S.G, me = S.seat, opp = 1 - me, T = G.T, p = G.P[me];
   const playing = G.status === 'playing', myTurn = G.turn === me && playing, ui = S.ui;
@@ -1948,7 +1997,21 @@ function renderGame(){
   });
   const hn = Math.max(1, hand.length);
 
-  let html = top + '<div class="campo">' +
+  // móvil en vertical: el campo del vecino y la feria comparten franja, con pestañas
+  const o = G.P[opp], cheap = Math.min(...G.row.filter(Boolean).map(id => CARDS[id].cost), G.pile > 0 ? 2 : 99);
+  const canBuy = myTurn && T.need === 0 && T.trade >= cheap;
+  const hits = myTurn ? o.bases.filter((b, i) => canHitBase(G, i)).length : 0;
+  const tw = tabWant(G, myTurn, canBuy);
+  if (tw !== ui.tabWant) { ui.tabWant = tw; ui.tab = tw; }
+  const tab = ui.tab || tw;
+  const oAct = playing && G.turn === opp;
+  const vSub = hits ? '<small class="hit">Puedes derribar ' + hits + '</small>' : oAct ? '<small class="hot">Faenando · ' + ico('coin') + T.trade + ' ' + ico('fork') + T.combat + '</small>' : '<small>' + o.bases.length + (o.bases.length === 1 ? ' instalación' : ' instalaciones') + ' · ' + o.hand.length + ' en mano</small>';
+  const fSub = canBuy ? '<small class="hot">Tienes ' + T.trade + (T.trade === 1 ? ' moneda' : ' monedas') + '</small>' : '<small>Quedan ' + G.market.length + '</small>';
+  const tabs = '<div class="tabs" role="tablist" aria-label="Qué ver arriba">' +
+    '<button role="tab" data-act="tab" data-t="v" aria-selected="' + (tab === 'v') + '">Campo del vecino' + vSub + '</button>' +
+    '<button role="tab" data-act="tab" data-t="f" aria-selected="' + (tab === 'f') + '">Feria' + fSub + '</button></div>';
+
+  let html = top + '<div class="campo tab-' + tab + '">' + tabs +
     '<section class="feria"><div class="sign">Feria de maquinaria<em>quedan ' + G.market.length + '</em></div><div class="market-row">' + pile + market + '</div></section>' +
     '<div class="mesa"><div class="bg o' + (playing && !myTurn ? ' on' : '') + '"></div><div class="bg m' + (myTurn ? ' on' : '') + '"></div>' +
       laneHTML(G, opp, false) + '<div class="side-o">' + plaqueHTML(G, opp, false) + '</div>' +
@@ -2134,7 +2197,7 @@ const TUT = [
   {sel:'button[data-act="end"]', side:'left', act:'end', t:'Ya no puedes hacer más. <b>Termina el turno</b>: lo que has jugado va a tu descarte y robas 5 cartas nuevas.'},
   {sel:'.plq.op', side:'left', wait:true, t:'Ahora juega el vecino. Las cartas que saca aparecen arriba, en su fila, y su última jugada se lee en la barra de arriba.'}
 ];
-const TUT_FREE = ['rules', 'closemodal', 'veil', 'log', 'pile', 'leave', 'tutcontinue'];
+const TUT_FREE = ['rules', 'closemodal', 'veil', 'log', 'pile', 'leave', 'tutcontinue', 'tab'];
 function newTutorial(){
   const G = newGame(0), take = id => { const i = G.market.indexOf(id); if (i >= 0) G.market.splice(i, 1); };
   G.market.push(...G.row.filter(Boolean));
@@ -2173,7 +2236,10 @@ function placeCoach(){
       (st.act ? '<span class="do">Pulsa lo que está resaltado</span>' : st.wait ? '<span class="do">Espera…</span>' : '<button class="next" data-tut="next">Siguiente</button>') + '</div>';
     if (!calm()) c.animate([{opacity:0, scale:'.94'}, {opacity:1, scale:'1'}], {duration:220, easing:'ease-out'});
   }
-  const t = app.querySelector(st.sel), w = c.offsetWidth, h = c.offsetHeight, g = 18;
+  // en el móvil algunas zonas van ocultas (letrero del vecino, la pestaña que no se ve): se señala la pestaña o nada
+  let t = app.querySelector(st.sel);
+  if (t && !t.getClientRects().length) t = /\.(lane|plq)\.op/.test(st.sel) ? app.querySelector('.tabs [data-t="v"]') : /market-row/.test(st.sel) ? app.querySelector('.tabs [data-t="f"]') : null;
+  const w = c.offsetWidth, h = c.offsetHeight, g = 18;
   if (t && S.tut.seen !== S.tut.step) { S.tut.seen = S.tut.step; try { t.scrollIntoView({block:'center', inline:'center'}); } catch (e) {} }
   let side = st.side, x = (innerWidth - w) / 2, y = (innerHeight - h) / 2;
   if (t) {
@@ -2414,6 +2480,7 @@ const H = {
     render();
   },
   cancelmode: () => { S.ui.mode = null; render(); },
+  tab: d => { S.ui.tab = d.t === 'f' ? 'f' : 'v'; render(); },
   pendtarget: d => {
     const m = S.ui.modal && (S.ui.modal.type === 'sc' || S.ui.modal.type === 'rc') ? {pi:S.ui.modal.pi} : S.ui.mode; if (!m) return;
     const pi = m.pi; S.ui.mode = null; S.ui.modal = null;
