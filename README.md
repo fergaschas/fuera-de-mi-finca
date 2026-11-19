@@ -4,13 +4,6 @@ Juego de cartas para dos jugadores ambientado en el campo. Cada uno lleva una fi
 
 Se juega en el navegador, en ordenador o en móvil. No necesita servidor propio ni cuentas.
 
-## Publicarlo en GitHub Pages
-
-1. Crea un repositorio en GitHub y sube todo el contenido de esta carpeta a la rama `main`.
-2. En el repositorio, entra en **Settings → Pages**.
-3. En **Build and deployment**, elige **Deploy from a branch**, rama `main` y carpeta `/ (root)`. Guarda.
-4. Al cabo de un minuto la página estará en `https://TU-USUARIO.github.io/NOMBRE-DEL-REPO/`.
-
 ## Cómo se juega en línea
 
 1. Un jugador pulsa **Crear partida**. Le sale un código de 4 caracteres y un enlace.
